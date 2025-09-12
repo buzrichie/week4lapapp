@@ -47,13 +47,16 @@ jobs:
             '[{name: $name, imageUri: $imageUri}]' > imagedefinitions.json
 
       # Commit and push imagedefinitions.json
-      - name: Commit imagedefinitions.json
+      - name: Commit and push imagedefinitions.json
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
+
+          git pull --rebase origin main
+
           git add imagedefinitions.json
           git commit -m "Add imagedefinitions.json for ECS deployment" || echo "No changes to commit"
-          git push
+          git push origin main
 
       # Trigger CodePipeline
       - name: Trigger CodePipeline
