@@ -29,35 +29,28 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Build and push image
-      - name: Build, tag, and push image
+            # Build, tag and push image
+      - name: Build and Push Docker image
         run: |
-          IMAGE_TAG=${GITHUB_SHA::8} # short git commit hash as tag
-          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
-          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
-          
-          docker build -t $IMAGE_URI .
-          docker push $IMAGE_URI
+          IMAGE_TAG=latest
+          ECR_REPO_URI=${{ secrets.ECR_REPOSITORY_URI }}
+          echo "Building Docker image..."
+          docker build -t $ECR_REPO_URI:$IMAGE_TAG .
+          echo "Pushing to ECR..."
+          docker push $ECR_REPO_URI:$IMAGE_TAG
 
       # Generate imagedefinitions.json
-      - name: Create imagedefinitions.json
+      - name: Generate imagedefinitions.json
         run: |
-          cat > imagedefinitions.json <<EOF
-          [
-            {
-              "name": "${{ secrets.CONTAINER_NAME }}",
-              "imageUri": "${IMAGE_URI}"
-            }
-          ]
-          EOF
+          echo "[{\"name\":\"${{ secrets.CONTAINER_NAME }}\",\"imageUri\":\"${{ secrets.ECR_REPOSITORY_URI }}:latest\"}]" > imagedefinitions.json
           cat imagedefinitions.json
 
       # Upload imagedefinitions.json to S3 artifact bucket
       - name: Upload imagedefinitions.json to S3
         run: |
-          aws s3 cp imagedefinitions.json s3://${{ secrets.PIPELINE_ARTIFACT_BUCKET }}/imagedefinitions.json
+          aws s3 cp imagedefinitions.json s3://${{ secrets.ARTIFACT_BUCKET }}/imagedefinitions.json
 
-      # Start CodePipeline execution
+      # Trigger CodePipeline (deploys ECS with new image)
       - name: Trigger CodePipeline
         run: |
-          aws codepipeline start-pipeline-execution --name ${{ secrets.PIPELINE_NAME }}
+          aws codepipeline start-pipeline-execution --name ${{ secrets.CODEPIPELINE_NAME }}
