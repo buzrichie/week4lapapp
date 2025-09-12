@@ -44,5 +44,4 @@ jobs:
       # Trigger CodePipeline (deploys ECS with new image)
       - name: Trigger CodePipeline
         run: |
-          aws codepipeline start-pipeline-execution \
-            --name ${{ secrets.CODEPIPELINE_NAME }}
+          aws codepipeline start-pipeline-execution --name ${{ secrets.CODEPIPELINE_NAME }}
