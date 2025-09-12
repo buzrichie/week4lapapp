@@ -3,45 +3,42 @@ name: Build and Deploy to ECS via CodePipeline
 on:
   push:
     branches:
-      - main   # change if your branch is different
+      - main 
 
 permissions:
-  id-token: write   # required for OIDC
-  contents: read
+  id-token: write   # Required for OIDC
+  contents: read    # Allows cloning repo
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout the repository
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # Configure AWS creds via OIDC Assume Role
+      # Configure AWS credentials via OIDC
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}   # stored in repo secrets
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: eu-central-1
 
-      # Log in to Amazon ECR
+      # Login to Amazon ECR
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Build, tag and push image
-      - name: Build and Push Docker image
-        run: |
-          IMAGE_TAG=latest
-          ECR_REPO_URI=${{ secrets.ECR_REPOSITORY_URI }}
+      # Build and push Docker image using docker/build-push-action
+      - name: Build and Push Docker image to ECR
+        uses: docker/build-push-action@v5
+        with:
+          context: .                          
+          file: ./Dockerfile                  
+          push: true
+          tags: ${{ secrets.ECR_REPOSITORY_URI }}:latest
 
-          echo "Building Docker image..."
-          docker build -t $ECR_REPO_URI:$IMAGE_TAG .
-
-          echo "Pushing to ECR..."
-          docker push $ECR_REPO_URI:$IMAGE_TAG
-
-      # Trigger CodePipeline (deploys ECS with new image)
+      # Trigger CodePipeline
       - name: Trigger CodePipeline
         run: |
           aws codepipeline start-pipeline-execution \
