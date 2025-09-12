@@ -3,21 +3,22 @@ name: Build and Deploy to ECS via CodePipeline
 on:
   push:
     branches:
-      - main   # Change if your branch is different
+      - main   # change if your branch is different
 
 permissions:
   id-token: write   # Required for OIDC
-  contents: write   # Required for committing imagedefinitions.json
+  contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout repo
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # Configure AWS credentials using OIDC
+      # Configure AWS credentials via OIDC
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -28,7 +29,7 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Build and push Docker image to ECR
+      # Build and Push Docker image
       - name: Build and Push Docker image
         run: |
           IMAGE_TAG=latest
@@ -38,21 +39,25 @@ jobs:
           echo "Pushing to ECR..."
           docker push $ECR_REPO_URI:$IMAGE_TAG
 
-      # Create imagedefinitions.json required for ECS deploy via CodePipeline
+      # Create imagedefinitions.json for ECS deployment
       - name: Create imagedefinitions.json
         run: |
-          echo "[{\"name\":\"${{ secrets.ECS_CONTAINER_NAME }}\",\"imageUri\":\"${{ secrets.ECR_REPOSITORY_URI }}:latest\"}]" > imagedefinitions.json
+          cat > imagedefinitions.json <<EOL
+          [
+            {
+              "name": "${{ secrets.ECS_CONTAINER_NAME }}",
+              "imageUri": "${{ secrets.ECR_REPOSITORY_URI }}:latest"
+            }
+          ]
+          EOL
+          cat imagedefinitions.json
 
-      # Commit and push imagedefinitions.json so CodePipeline can access it
-      - name: Commit imagedefinitions.json
+      # Upload imagedefinitions.json to CodePipeline artifact bucket
+      - name: Upload imagedefinitions.json to S3
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add imagedefinitions.json
-          git commit -m "Add imagedefinitions.json for ECS deployment" || echo "No changes to commit"
-          git push
+          aws s3 cp imagedefinitions.json s3://${{ secrets.ARTIFACT_BUCKET }}/imagedefinitions.json
 
-      # Trigger CodePipeline to start deployment
+      # Trigger CodePipeline to start ECS deployment
       - name: Trigger CodePipeline
         run: |
           aws codepipeline start-pipeline-execution --name ${{ secrets.CODEPIPELINE_NAME }}
