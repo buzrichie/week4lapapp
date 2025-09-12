@@ -6,9 +6,8 @@ on:
       - main
 
 permissions:
-  id-token: write     # Required for OIDC
-  contents: write     # Required to commit imagedefinitions.json
-
+  id-token: write    
+  contents: write  
 jobs:
   deploy:
     runs-on: ubuntu-latest
