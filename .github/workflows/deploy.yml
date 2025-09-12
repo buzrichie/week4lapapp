@@ -48,7 +48,7 @@ jobs:
       # Upload imagedefinitions.json to S3 (CodePipeline artifact bucket)
       - name: Upload imagedefinitions.json to S3
         run: |
-          aws s3 cp imagedefinitions.json s3://${{ secrets.CODEPIPELINE_ARTIFACT_BUCKET }}/imagedefinitions.json
+          aws s3 cp imagedefinitions.json s3://${{ secrets.ARTIFACT_BUCKET }}/imagedefinitions.json
 
       # Trigger CodePipeline
       - name: Trigger CodePipeline
