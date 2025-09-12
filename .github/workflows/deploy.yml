@@ -7,7 +7,8 @@ on:
 
 permissions:
   id-token: write    
-  contents: write  
+  contents: read  
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -37,24 +38,17 @@ jobs:
           echo "Pushing Docker image..."
           docker push $ECR_REPO_URI:$IMAGE_TAG
 
-      # Create a valid imagedefinitions.json using jq
+      # Create imagedefinitions.json
       - name: Create imagedefinitions.json
         run: |
           CONTAINER_NAME="${{ secrets.ECS_CONTAINER_NAME }}"
           IMAGE_URI="${{ secrets.ECR_REPOSITORY_URI }}:latest"
+          echo "[{\"name\":\"$CONTAINER_NAME\",\"imageUri\":\"$IMAGE_URI\"}]" > imagedefinitions.json
 
-          jq -n --arg name "$CONTAINER_NAME" --arg imageUri "$IMAGE_URI" \
-            '[{name: $name, imageUri: $imageUri}]' > imagedefinitions.json
-
-      # Commit and push imagedefinitions.json
-      - name: Commit imagedefinitions.json
+      # Upload imagedefinitions.json to S3 (CodePipeline artifact bucket)
+      - name: Upload imagedefinitions.json to S3
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add imagedefinitions.json
-          git commit -m "Add imagedefinitions.json for ECS deployment" || echo "No changes to commit"
-          git push
-
+          aws s3 cp imagedefinitions.json s3://${{ secrets.CODEPIPELINE_ARTIFACT_BUCKET }}/imagedefinitions.json
 
       # Trigger CodePipeline
       - name: Trigger CodePipeline
