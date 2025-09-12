@@ -3,61 +3,60 @@ name: Build and Deploy to ECS via CodePipeline
 on:
   push:
     branches:
-      - main   # change if your branch is different
+      - main
 
 permissions:
-  id-token: write   # Required for OIDC
-  contents: read
+  id-token: write     # Required for OIDC
+  contents: write     # Required to commit imagedefinitions.json
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repo
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # Configure AWS credentials via OIDC
+      # Configure AWS credentials using OIDC
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           aws-region: eu-central-1
 
-      # Login to Amazon ECR
+      # Log in to Amazon ECR
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Build and Push Docker image
+      # Build and push Docker image
       - name: Build and Push Docker image
         run: |
           IMAGE_TAG=latest
           ECR_REPO_URI=${{ secrets.ECR_REPOSITORY_URI }}
           echo "Building Docker image..."
           docker build -t $ECR_REPO_URI:$IMAGE_TAG .
-          echo "Pushing to ECR..."
+          echo "Pushing Docker image..."
           docker push $ECR_REPO_URI:$IMAGE_TAG
 
-      # Create imagedefinitions.json for ECS deployment
+      # Create a valid imagedefinitions.json using jq
       - name: Create imagedefinitions.json
         run: |
-          cat > imagedefinitions.json <<EOL
-          [
-            {
-              "name": "${{ secrets.ECS_CONTAINER_NAME }}",
-              "imageUri": "${{ secrets.ECR_REPOSITORY_URI }}:latest"
-            }
-          ]
-          EOL
-          cat imagedefinitions.json
+          CONTAINER_NAME="${{ secrets.ECS_CONTAINER_NAME }}"
+          IMAGE_URI="${{ secrets.ECR_REPOSITORY_URI }}:latest"
 
-      # Upload imagedefinitions.json to CodePipeline artifact bucket
-      - name: Upload imagedefinitions.json to S3
+          jq -n --arg name "$CONTAINER_NAME" --arg imageUri "$IMAGE_URI" \
+            '[{name: $name, imageUri: $imageUri}]' > imagedefinitions.json
+
+      # Commit and push imagedefinitions.json
+      - name: Commit imagedefinitions.json
         run: |
-          aws s3 cp imagedefinitions.json s3://${{ secrets.ARTIFACT_BUCKET }}/imagedefinitions.json
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add imagedefinitions.json
+          git commit -m "Add imagedefinitions.json for ECS deployment" || echo "No changes to commit"
+          git push
 
-      # Trigger CodePipeline to start ECS deployment
+      # Trigger CodePipeline
       - name: Trigger CodePipeline
         run: |
           aws codepipeline start-pipeline-execution --name ${{ secrets.CODEPIPELINE_NAME }}
