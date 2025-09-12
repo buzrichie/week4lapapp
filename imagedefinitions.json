@@ -1,6 +1,6 @@
 [
   {
-    "name": "",
+    "name": "ecs-lab-container ",
     "imageUri": "004165097941.dkr.ecr.eu-central-1.amazonaws.com/ecs-lab-repo:latest"
   }
 ]
