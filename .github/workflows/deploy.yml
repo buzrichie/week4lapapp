@@ -1,47 +1,63 @@
-name: Build and Deploy to ECS via CodePipeline
+name: Deploy to ECS
 
 on:
   push:
     branches:
-      - main   # change if your branch is different
-
-permissions:
-  id-token: write   # required for OIDC
-  contents: read
+      - main   # adjust to your branch
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    permissions:
+      id-token: write
+      contents: read
+
     steps:
-      - name: Checkout source
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # Configure AWS creds via OIDC Assume Role
-      - name: Configure AWS Credentials
+      # Authenticate to AWS with OIDC
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}   # stored in repo secrets
-          aws-region: eu-central-1
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.GITHUB_ACTIONS_ROLE }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      # Log in to Amazon ECR
-      - name: Login to Amazon ECR
+      # Log in to ECR
+      - name: Log in to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Build, tag and push image
-      - name: Build and Push Docker image
+      # Build and push image
+      - name: Build, tag, and push image
         run: |
-          IMAGE_TAG=latest
-          ECR_REPO_URI=${{ secrets.ECR_REPOSITORY_URI }}
+          IMAGE_TAG=${GITHUB_SHA::8} # short git commit hash as tag
+          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
 
-          echo "Building Docker image..."
-          docker build -t $ECR_REPO_URI:$IMAGE_TAG .
+      # Generate imagedefinitions.json
+      - name: Create imagedefinitions.json
+        run: |
+          cat > imagedefinitions.json <<EOF
+          [
+            {
+              "name": "${{ secrets.CONTAINER_NAME }}",
+              "imageUri": "${IMAGE_URI}"
+            }
+          ]
+          EOF
+          cat imagedefinitions.json
 
-          echo "Pushing to ECR..."
-          docker push $ECR_REPO_URI:$IMAGE_TAG
+      # Upload imagedefinitions.json to S3 artifact bucket
+      - name: Upload imagedefinitions.json to S3
+        run: |
+          aws s3 cp imagedefinitions.json s3://${{ secrets.PIPELINE_ARTIFACT_BUCKET }}/imagedefinitions.json
 
-      # Trigger CodePipeline (deploys ECS with new image)
+      # Start CodePipeline execution
       - name: Trigger CodePipeline
         run: |
-          aws codepipeline start-pipeline-execution --name ${{ secrets.CODEPIPELINE_NAME }}
+          aws codepipeline start-pipeline-execution --name ${{ secrets.PIPELINE_NAME }}
