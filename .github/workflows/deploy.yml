@@ -58,7 +58,7 @@ jobs:
             - TargetService:
                 Type: AWS::ECS::Service
                 Properties:
-                  TaskDefinition: "taskdef-rendered.json"
+                  TaskDefinition: "arn:aws:ecs:eu-central-1:004165097941:task-definition/ecs-lab-task:14"
                   LoadBalancerInfo:
                     ContainerName: "$CONTAINER_NAME"
                     ContainerPort: 8080
