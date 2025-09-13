@@ -81,8 +81,12 @@ jobs:
           echo "Contents of ZIP:"
           unzip -l deployment-artifact.zip
 
+      - name: Debug - Print ECS container name
+        run: echo "ECS_CONTAINER_NAME=${{ secrets.ECS_CONTAINER_NAME }}"
 
-        # 8. Trigger CodePipeline
+
+
+    # 8. Trigger CodePipeline
       - name: Trigger CodePipeline
         run: |
           aws codepipeline start-pipeline-execution --name ${{ secrets.CODEPIPELINE_NAME }}
