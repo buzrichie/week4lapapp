@@ -1,6 +1,6 @@
 {
   "family": "ecs-stack-task-definition",
-  "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+  "executionRoleArn": "arn:aws:iam::004165097941:role/ecs-lab-ecsTaskExecutionRole",
   "networkMode": "awsvpc",
   "containerDefinitions": [
     {
