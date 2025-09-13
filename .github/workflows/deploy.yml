@@ -68,9 +68,21 @@ jobs:
       # 7. Upload deployment artifact to S3
       - name: Upload to S3
         run: |
-          aws s3 cp deployment-artifact.zip s3://${{ secrets.ARTIFACT_BUCKET }}/deployment-artifact.zip
+          aws s3 cp deployment-artifact.zip s3://${{ secrets.ARTIFACT_BUCKET }}/appspec-artifact.zip      
 
-      # 8. Trigger CodePipeline
+      - name: Validate taskdef-rendered.json
+        run: |
+          jq . taskdef-rendered.json
+
+      - name: Debug - List artifact contents
+        run: |
+          echo "Files in current dir:"
+          ls -lah
+          echo "Contents of ZIP:"
+          unzip -l deployment-artifact.zip
+
+
+        # 8. Trigger CodePipeline
       - name: Trigger CodePipeline
         run: |
           aws codepipeline start-pipeline-execution --name ${{ secrets.CODEPIPELINE_NAME }}
