@@ -50,7 +50,7 @@ jobs:
       - name: Prepare deployment artifact
         run: |
           # Create the proper AppSpec file with placeholder
-          cat > appspec-rendered.yml << EOF
+          cat > appspec.yml << EOF
           version: 0.0
           Resources:
             - TargetService:
@@ -63,7 +63,7 @@ jobs:
           EOF
           
           # Create zip containing both files
-          zip deployment-artifact.zip appspec-rendered.yml taskdef-rendered.json
+          zip deployment-artifact.zip appspec.yml taskdef-rendered.json
 
       # 7. Upload deployment artifact to S3
       - name: Upload to S3
