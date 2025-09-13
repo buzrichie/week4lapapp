@@ -1,11 +1,11 @@
 {
-  "family": "your-task-family",
-  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "family": "ecs-stack-task-definition",
+  "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
   "networkMode": "awsvpc",
   "containerDefinitions": [
     {
-      "name": "your-container-name",
-      "image": "REPLACE_IMAGE_URI",
+      "name": "ecs-stack-container",
+      "image": "<IMAGE_URI>",
       "portMappings": [
         {
           "containerPort": 80,
