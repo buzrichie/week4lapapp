@@ -29,50 +29,34 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      # 4. Build Docker image
+      # 4. Build Docker image with commit SHA
       - name: Build Docker image
         run: |
-          IMAGE_TAG=latest
           ECR_REPO_URI=${{ secrets.ECR_REPOSITORY_URI }}
-          docker build -t $ECR_REPO_URI:$IMAGE_TAG .
-          docker push $ECR_REPO_URI:$IMAGE_TAG
+          docker build -t $ECR_REPO_URI:${{ github.sha }} .
+          docker push $ECR_REPO_URI:${{ github.sha }}
 
       # 5. Render task definition with new image URI
       - name: Generate ECS task definition
         run: |
-          IMAGE_URI=${{ secrets.ECR_REPOSITORY_URI }}:latest
+          IMAGE_URI=${{ secrets.ECR_REPOSITORY_URI }}:${{ github.sha }}
           CONTAINER_NAME=${{ secrets.ECS_CONTAINER_NAME }}
 
           jq --arg image "$IMAGE_URI" --arg name "$CONTAINER_NAME" \
             '.containerDefinitions[0].image=$image | .containerDefinitions[0].name=$name' \
             taskdef.json > taskdef-rendered.json
 
-      # 6. Render appspec.yml for CodeDeploy
-      - name: Generate AppSpec file
+      # 6. Create zip with only task definition (AppSpec is already in repo)
+      - name: Create deployment artifact
         run: |
-          cat > appspec.yml <<EOF
-          version: 1
-          Resources:
-            - TargetService:
-                Type: AWS::ECS::Service
-                Properties:
-                  TaskDefinition: taskdef-rendered.json
-                  LoadBalancerInfo:
-                    ContainerName: ${{ secrets.ECS_CONTAINER_NAME }}
-                    ContainerPort: 80
-          EOF
-
-      # 6b. Create a zip artifact
-      - name: Create appspec-artifact.zip
-        run: |
-          zip appspec-artifact.zip appspec.yml taskdef-rendered.json
+          zip deployment-artifact.zip taskdef-rendered.json
 
       # 7. Upload to S3
-      - name: Upload AppSpec & TaskDef to S3
+      - name: Upload to S3
         run: |
-          aws s3 cp appspec-artifact.zip s3://${{ secrets.ARTIFACT_BUCKET }}/appspec-artifact.zip     
+          aws s3 cp deployment-artifact.zip s3://${{ secrets.ARTIFACT_BUCKET }}/deployment-artifact.zip
 
-        # 8. Trigger CodePipeline
+      # 8. Trigger CodePipeline
       - name: Trigger CodePipeline
         run: |
           aws codepipeline start-pipeline-execution --name ${{ secrets.CODEPIPELINE_NAME }}
