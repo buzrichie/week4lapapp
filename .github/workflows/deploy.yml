@@ -46,14 +46,24 @@ jobs:
             '.containerDefinitions[0].image=$image | .containerDefinitions[0].name=$name' \
             taskdef.json > taskdef-rendered.json
 
-      # 6. Ensure AppSpec has correct version (0.0) and create deployment artifact
+      # 6. Create CORRECT AppSpec file and deployment artifact
       - name: Prepare deployment artifact
         run: |
-          # Make sure AppSpec version is correct
-          sed -i 's/version: 1/version: 0.0/' appspec.yml
-
-          # Create zip containing both appspec.yml and rendered task definition
-          zip -r deployment-artifact.zip appspec.yml taskdef-rendered.json
+          # Create the proper AppSpec file with placeholder
+          cat > appspec-rendered.yml << EOF
+          version: 0.0
+          Resources:
+            - TargetService:
+                Type: AWS::ECS::Service
+                Properties:
+                  TaskDefinition: "<TASK_DEFINITION>"
+                  LoadBalancerInfo:
+                    ContainerName: "ecs-lab-container"
+                    ContainerPort: 8080
+          EOF
+          
+          # Create zip containing both files
+          zip deployment-artifact.zip appspec-rendered.yml taskdef-rendered.json
 
       # 7. Upload deployment artifact to S3
       - name: Upload to S3
