@@ -4,7 +4,7 @@
   "networkMode": "awsvpc",
   "containerDefinitions": [
     {
-      "name": "ecs-stack-container",
+      "name": "ecs-lab-container",
       "image": "<IMAGE_URI>",
       "portMappings": [
         {
