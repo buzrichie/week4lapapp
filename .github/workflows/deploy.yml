@@ -51,18 +51,18 @@ jobs:
         run: |
           # Create the proper AppSpec file with placeholder
           cat > appspec.yml << EOF
-          version: 0.0
-          Resources:
-            - TargetService:
-                Type: AWS::ECS::Service
-                Properties:
-                  TaskDefinition: "taskdef-rendered.json"
-                  LoadBalancerInfo:
-                    ContainerName: "ecs-lab-container"
-                    ContainerPort: 8080
-          EOF
-          
-          # Create zip containing both files
+            version: 0.0
+            Resources:
+              - TargetService:
+                  Type: AWS::ECS::Service
+                  Properties:
+                    TaskDefinition: "taskdef-rendered.json"
+                    LoadBalancerInfo:
+                      ContainerName: "${{ secrets.ECS_CONTAINER_NAME }}"
+                      ContainerPort: 8080
+              EOF
+
+  # Create zip containing both files
           zip deployment-artifact.zip appspec.yml taskdef-rendered.json
 
       # 7. Upload deployment artifact to S3
