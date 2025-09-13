@@ -36,7 +36,7 @@ jobs:
           docker build -t $ECR_REPO_URI:${{ github.sha }} .
           docker push $ECR_REPO_URI:${{ github.sha }}
 
-      # 5. Render task definition with new image URI
+      # 5. Render ECS task definition with new image URI
       - name: Generate ECS task definition
         run: |
           IMAGE_URI=${{ secrets.ECR_REPOSITORY_URI }}:${{ github.sha }}
@@ -46,12 +46,16 @@ jobs:
             '.containerDefinitions[0].image=$image | .containerDefinitions[0].name=$name' \
             taskdef.json > taskdef-rendered.json
 
-      # 6. Create zip with only task definition (AppSpec is already in repo)
-      - name: Create deployment artifact
+      # 6. Ensure AppSpec has correct version (0.0) and create deployment artifact
+      - name: Prepare deployment artifact
         run: |
-          zip deployment-artifact.zip taskdef-rendered.json
+          # Make sure AppSpec version is correct
+          sed -i 's/version: 1/version: 0.0/' appspec.yml
 
-      # 7. Upload to S3
+          # Create zip containing both appspec.yml and rendered task definition
+          zip -r deployment-artifact.zip appspec.yml taskdef-rendered.json
+
+      # 7. Upload deployment artifact to S3
       - name: Upload to S3
         run: |
           aws s3 cp deployment-artifact.zip s3://${{ secrets.ARTIFACT_BUCKET }}/deployment-artifact.zip
