@@ -62,13 +62,17 @@ jobs:
                     ContainerPort: 80
           EOF
 
-      # 7. Upload artifacts to S3 (CodePipeline will use this)
+      # 6b. Create a zip artifact
+      - name: Create appspec-artifact.zip
+        run: |
+          zip appspec-artifact.zip appspec.yml taskdef-rendered.json
+
+      # 7. Upload to S3
       - name: Upload AppSpec & TaskDef to S3
         run: |
-          aws s3 cp taskdef-rendered.json s3://${{ secrets.ARTIFACT_BUCKET }}/taskdef-rendered.json
-          aws s3 cp appspec.yml s3://${{ secrets.ARTIFACT_BUCKET }}/appspec.yml
+          aws s3 cp appspec-artifact.zip s3://${{ secrets.ARTIFACT_BUCKET }}/appspec-artifact.zip     
 
-      # 8. Trigger CodePipeline
+        # 8. Trigger CodePipeline
       - name: Trigger CodePipeline
         run: |
           aws codepipeline start-pipeline-execution --name ${{ secrets.CODEPIPELINE_NAME }}
