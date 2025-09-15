@@ -34,8 +34,14 @@ jobs:
         run: |
           ECR_REPO_URI=${{ secrets.ECR_REPOSITORY_URI }}
           IMAGE_TAG=${{ github.sha }}
-          docker build -t $ECR_REPO_URI:$IMAGE_TAG .
+          
+          # Build and tag both versions
+          docker build -t $ECR_REPO_URI:$IMAGE_TAG -t $ECR_REPO_URI:latest .
+          
+          # Push both tags
           docker push $ECR_REPO_URI:$IMAGE_TAG
+          docker push $ECR_REPO_URI:latest
+
 
       # 5. Render ECS task definition with new image URI
       - name: Generate ECS task definition
@@ -58,7 +64,7 @@ jobs:
             - TargetService:
                 Type: AWS::ECS::Service
                 Properties:
-                  TaskDefinition: ${{ secrets.TASK_DEFINITION }}
+                  TaskDefinition: ${{ secrets.TASK_DEFINITION_ARN }}
                   LoadBalancerInfo:
                     ContainerName: "$CONTAINER_NAME"
                     ContainerPort: 8080
