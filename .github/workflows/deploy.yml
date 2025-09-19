@@ -1,4 +1,4 @@
-name: Build and Deploy to ECS via CodePipeline (Blue/Green)
+name: Build and Push to Amazon ECR
 
 on:
   push:
@@ -7,10 +7,10 @@ on:
 
 permissions:
   id-token: write
-  contents: write
+  contents: read
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,65 +29,35 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      # 4. Build Docker image with commit SHA
+      # 4. Build and push Docker image
       - name: Build and Push Docker image
         run: |
           ECR_REPO_URI=${{ secrets.ECR_REPOSITORY_URI }}
           IMAGE_TAG=${{ github.sha }}
           
-          # Build and tag both versions
+          # Build and tag image
           docker build -t $ECR_REPO_URI:$IMAGE_TAG -t $ECR_REPO_URI:latest .
           
           # Push both tags
           docker push $ECR_REPO_URI:$IMAGE_TAG
           docker push $ECR_REPO_URI:latest
 
-
-      # 5. Render ECS task definition with new image URI
-      - name: Generate ECS task definition
+      # 5. Prepare deployment templates (taskdef.json + appspec.yml)
+      - name: Prepare Deployment Templates
         run: |
           IMAGE_URI=${{ secrets.ECR_REPOSITORY_URI }}:${{ github.sha }}
           CONTAINER_NAME=${{ secrets.ECS_CONTAINER_NAME }}
 
+          # Inject image into task definition
           jq --arg image "$IMAGE_URI" --arg name "$CONTAINER_NAME" \
             '.containerDefinitions[0].image=$image | .containerDefinitions[0].name=$name' \
             taskdef.json > taskdef-rendered.json
 
-      # 6. Create AppSpec file and ZIP deployment artifact
-      - name: Prepare deployment artifact
+          # Create zip for pipeline
+          mv taskdef-rendered.json taskdef.json
+          zip deployment-templates.zip taskdef.json appspec.yml
+
+      # 6. Upload templates zip to S3
+      - name: Upload Deployment Templates
         run: |
-          CONTAINER_NAME=${{ secrets.ECS_CONTAINER_NAME }}
-
-          cat > appspec.yml <<EOF
-          version: 0.0
-          Resources:
-            - TargetService:
-                Type: AWS::ECS::Service
-                Properties:
-                  TaskDefinition: ${{ secrets.TASK_DEFINITION_ARN }}
-                  LoadBalancerInfo:
-                    ContainerName: "$CONTAINER_NAME"
-                    ContainerPort: 8080
-          EOF
-
-          # Print for debugging
-          echo "==== AppSpec.yml ===="
-          cat appspec.yml
-          echo "==== Task Definition ===="
-          cat taskdef-rendered.json
-
-          # Create zip file
-          zip deployment-artifact.zip appspec.yml taskdef-rendered.json
-
-          # List contents
-          unzip -l deployment-artifact.zip
-
-      # 7. Upload artifact to S3 using the correct key
-      - name: Upload to S3
-        run: |
-          aws s3 cp deployment-artifact.zip s3://${{ secrets.ARTIFACT_BUCKET }}/appspec-artifact.zip
-
-      # 8. Trigger CodePipeline
-      - name: Trigger CodePipeline
-        run: |
-          aws codepipeline start-pipeline-execution --name ${{ secrets.CODEPIPELINE_NAME }}
+          aws s3 cp deployment-templates.zip s3://${{ secrets.ARTIFACT_BUCKET }}/
