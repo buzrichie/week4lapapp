@@ -40,7 +40,7 @@ jobs:
           
           # Push both tags
           docker push $ECR_REPO_URI:$IMAGE_TAG
-          docker push $ECR_REPO_URI:latest
+#          docker push $ECR_REPO_URI:latest
 
       # 5. Prepare deployment templates (taskdef.json + appspec.yml)
       - name: Prepare Deployment Templates
